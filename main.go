@@ -86,12 +86,12 @@ func ParseData(data []byte) (*Input, error) {
 	host := getHostRegex(data)
 
 	if host == "" {
-		return nil, fmt.Errorf("target line and host header missed, cant understand the target\n")
+		return nil, fmt.Errorf("target line and host header missed, cant understand the target")
 	}
 
 	input := &Input{}
 	input.URL = "https://" + host
-	input.Request = data
+	input.Request = dataNormalization(data)
 
 	return input, nil
 }
@@ -121,14 +121,27 @@ func ParseDataWithTarget(data []byte) (*Input, error) {
 		// 3. Add to end
 		req = append(req, delimiter...)
 	}
+	input.Request = dataNormalization(req)
 
+	return input, nil
+}
+
+func dataNormalization(req []byte) []byte {
+	req = replaceLastCR(req)
 	req = bytes.ReplaceAll(req, []byte("\r\n"), []byte("\n"))
 	req = bytes.ReplaceAll(req, []byte("\n"), []byte("\r\n"))
 
-	// 3. Extract the raw request (request)
-	input.Request = req
+	return req
+}
 
-	return input, nil
+func replaceLastCR(data []byte) []byte {
+	if len(data) == 0 || data[len(data)-1] != '\r' {
+		return data
+	}
+	result := make([]byte, len(data))
+	copy(result, data)
+	result[len(result)-1] = '\n'
+	return result
 }
 
 func replaceContentLength(rawRequest []byte) []byte {
