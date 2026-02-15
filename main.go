@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/vodafon/rawhttp"
 )
@@ -48,6 +49,8 @@ func main() {
 
 	client := rawhttp.NewDefaultClient()
 	defer client.Close()
+	client.Timeout = 30 * time.Second
+	client.QuietTimeout = 300 * time.Millisecond
 
 	if *flagProxy != "" {
 		u, err := url.Parse(*flagProxy)
