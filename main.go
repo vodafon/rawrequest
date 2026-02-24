@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	flagProxy    = flag.String("x", "http://127.0.0.1:8080", "proxy")
+	flagProxy    = flag.String("x", "", "proxy")
 	flagChangeCL = flag.Bool("cl", true, "recalculate content length")
 	flagDebug    = flag.Bool("debug", false, "debug mode")
 )
