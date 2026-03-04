@@ -114,15 +114,17 @@ func ParseDataWithTarget(data []byte) (*Input, error) {
 	// 2. Extract and clean the URL (u)
 	// Remove '#' and any surrounding whitespace
 	input.URL = string(bytes.TrimSpace(bytes.TrimPrefix(parts[0], []byte("#"))))
-	req := parts[1]
-	delimiter := []byte("\n\n")
-	// 1. Check if it contains the sequence
-	if !bytes.Contains(req, delimiter) {
-		// 2. Trim leading/trailing whitespace
-		req = bytes.TrimSpace(req)
 
-		// 3. Add to end
-		req = append(req, delimiter...)
+	if input.URL == "" {
+		return nil, fmt.Errorf("invalid format: empty target URL")
+	}
+
+	req := parts[1]
+	// Check for header/body delimiter in both LF and CRLF forms
+	hasDelimiter := bytes.Contains(req, []byte("\n\n")) || bytes.Contains(req, []byte("\r\n\r\n"))
+	if !hasDelimiter {
+		req = bytes.TrimSpace(req)
+		req = append(req, []byte("\n\n")...)
 	}
 	input.Request = dataNormalization(req)
 
@@ -131,7 +133,10 @@ func ParseDataWithTarget(data []byte) (*Input, error) {
 
 func dataNormalization(req []byte) []byte {
 	req = replaceLastCR(req)
+	// Collapse \r\n to \n first, then replace any remaining bare \r
+	// (old Mac-style line endings) with \n, then convert all \n to \r\n.
 	req = bytes.ReplaceAll(req, []byte("\r\n"), []byte("\n"))
+	req = bytes.ReplaceAll(req, []byte("\r"), []byte("\n"))
 	req = bytes.ReplaceAll(req, []byte("\n"), []byte("\r\n"))
 
 	return req

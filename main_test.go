@@ -99,18 +99,11 @@ func TestDataNormalization(t *testing.T) {
 			in:   []byte{},
 			want: []byte{},
 		},
-		// BUG: bare \r (old Mac-style) is not normalized to \r\n.
-		// A bare \r survives normalization, producing \r\r\n after the
-		// second ReplaceAll when a \n follows later in the data.
+		// Bare \r (old Mac-style) is now normalized to \r\n.
 		{
-			name: "bare CR not normalized (known bug)",
+			name: "bare CR normalized to CRLF",
 			in:   []byte("GET / HTTP/1.1\rHost: example.com\r\n\r\n"),
-			// Ideal output would be all \r\n, but the current code
-			// leaves the bare \r in place, producing \r\r\n.
-			// The bare \r at position 14 survives both ReplaceAll calls:
-			//   step 1 (\r\n→\n): "GET / HTTP/1.1\rHost: example.com\n\n"
-			//   step 2 (\n→\r\n): "GET / HTTP/1.1\rHost: example.com\r\n\r\n"
-			want: []byte("GET / HTTP/1.1\rHost: example.com\r\n\r\n"),
+			want: []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
 		},
 	}
 	for _, tt := range tests {
@@ -366,11 +359,8 @@ func TestParseDataWithTarget(t *testing.T) {
 			wantURL: "https://example.com",
 			wantReq: []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
 		},
-		// For GET with CRLF and no body: TrimSpace strips trailing \r\n\r\n,
-		// then \n\n is appended, then dataNormalization produces correct result.
-		// The bug path is exercised but output happens to be correct for bodyless requests.
 		{
-			name:    "request with CRLF line endings (no body, accidentally correct)",
+			name:    "request with CRLF line endings",
 			in:      []byte("#https://example.com\nGET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
 			wantURL: "https://example.com",
 			wantReq: []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
@@ -387,29 +377,21 @@ func TestParseDataWithTarget(t *testing.T) {
 			wantURL: "https://example.com/path?q=1",
 			wantReq: []byte("GET /path?q=1 HTTP/1.1\r\nHost: example.com\r\n\r\n"),
 		},
-		// BUG: POST with body using LF works, but body gets trailing \r\n\r\n
-		// appended because after dataNormalization the \n\n becomes \r\n\r\n,
-		// and then the body content follows. However input using \n\n IS
-		// detected by the delimiter check, so body is NOT trimmed.
 		{
 			name:    "POST with body",
 			in:      []byte("#https://example.com\nPOST / HTTP/1.1\nHost: example.com\nContent-Length: 4\n\nbody"),
 			wantURL: "https://example.com",
 			wantReq: []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 4\r\n\r\nbody"),
 		},
-		// BUG: empty URL is accepted without error
 		{
-			name:    "empty URL accepted (known bug)",
+			name:    "empty URL returns error",
 			in:      []byte("#\nGET / HTTP/1.1\nHost: example.com\n\n"),
-			wantURL: "",
-			wantReq: []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
+			wantErr: true,
 		},
-		// BUG: whitespace-only URL is accepted
 		{
-			name:    "whitespace only URL accepted (known bug)",
+			name:    "whitespace only URL returns error",
 			in:      []byte("#   \nGET / HTTP/1.1\nHost: example.com\n\n"),
-			wantURL: "",
-			wantReq: []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -434,13 +416,8 @@ func TestParseDataWithTarget(t *testing.T) {
 	}
 }
 
-// BUG: ParseDataWithTarget with CRLF-terminated request that has \r\n\r\n.
-// The delimiter check (line 120) looks for "\n\n" but a fully CRLF request
-// contains "\r\n\r\n" which does NOT contain "\n\n" as contiguous bytes.
-// This causes the function to TrimSpace the request and append "\n\n",
-// which after dataNormalization becomes extra trailing \r\n\r\n.
-func TestParseDataWithTarget_CRLFDelimiterBug(t *testing.T) {
-	// A POST request with proper \r\n\r\n delimiter and a body
+// Verify CRLF delimiter is properly detected so body is preserved.
+func TestParseDataWithTarget_CRLFDelimiter(t *testing.T) {
 	input := []byte("#https://example.com\nPOST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 4\r\n\r\nbody")
 
 	got, err := ParseDataWithTarget(input)
@@ -448,26 +425,20 @@ func TestParseDataWithTarget_CRLFDelimiterBug(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// The ideal result: body immediately after \r\n\r\n, nothing after
-	ideal := []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 4\r\n\r\nbody")
-
-	if !bytes.Equal(got.Request, ideal) {
-		t.Errorf("BUG: CRLF delimiter not detected, extra bytes appended\ngot  = %q\nwant = %q", got.Request, ideal)
+	want := []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 4\r\n\r\nbody")
+	if !bytes.Equal(got.Request, want) {
+		t.Errorf("CRLF delimiter not handled correctly\ngot  = %q\nwant = %q", got.Request, want)
 	}
 }
 
-// BUG: dataNormalization does not handle bare \r (old Mac line endings).
-// A bare \r that is NOT followed by \n survives both ReplaceAll calls.
+// Verify bare \r is normalized to \r\n.
 func TestDataNormalization_BareCR(t *testing.T) {
-	// Input uses bare \r between lines (old Mac style)
 	input := []byte("GET / HTTP/1.1\rHost: example.com\r\n\r\n")
 
 	got := dataNormalization(input)
+	want := []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
 
-	// Ideally all line separators should become \r\n
-	ideal := []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-
-	if !bytes.Equal(got, ideal) {
-		t.Errorf("BUG: bare \\r not converted to \\r\\n\ngot  = %q\nwant = %q", got, ideal)
+	if !bytes.Equal(got, want) {
+		t.Errorf("bare \\r not converted to \\r\\n\ngot  = %q\nwant = %q", got, want)
 	}
 }
