@@ -442,3 +442,47 @@ func TestDataNormalization_BareCR(t *testing.T) {
 		t.Errorf("bare \\r not converted to \\r\\n\ngot  = %q\nwant = %q", got, want)
 	}
 }
+
+// Verify trailing \n from Unix text files is stripped from body.
+// Unix files end with \n which is not part of the HTTP body.
+func TestDataNormalization_TrailingNewlineStrippedFromBody(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []byte
+		want []byte
+	}{
+		{
+			name: "body with trailing LF",
+			in:   []byte("POST / HTTP/1.1\nHost: example.com\nContent-Length: 3\n\na=1\n"),
+			want: []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 3\r\n\r\na=1"),
+		},
+		{
+			name: "body with trailing CRLF",
+			in:   []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 3\r\n\r\na=1\r\n"),
+			want: []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 3\r\n\r\na=1"),
+		},
+		{
+			name: "body without trailing newline unchanged",
+			in:   []byte("POST / HTTP/1.1\nHost: example.com\nContent-Length: 3\n\na=1"),
+			want: []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 3\r\n\r\na=1"),
+		},
+		{
+			name: "no body unchanged",
+			in:   []byte("GET / HTTP/1.1\nHost: example.com\n\n"),
+			want: []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
+		},
+		{
+			name: "form body with trailing LF",
+			in:   []byte("POST / HTTP/1.1\nHost: example.com\nContent-Type: application/x-www-form-urlencoded\nContent-Length: 11\n\nuser=a&x=42\n"),
+			want: []byte("POST / HTTP/1.1\r\nHost: example.com\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 11\r\n\r\nuser=a&x=42"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dataNormalization(tt.in)
+			if !bytes.Equal(got, tt.want) {
+				t.Errorf("dataNormalization(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}

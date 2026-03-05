@@ -139,6 +139,17 @@ func dataNormalization(req []byte) []byte {
 	req = bytes.ReplaceAll(req, []byte("\r"), []byte("\n"))
 	req = bytes.ReplaceAll(req, []byte("\n"), []byte("\r\n"))
 
+	// If a body exists after the header delimiter, strip a single
+	// trailing \r\n that comes from Unix/Windows text file line endings.
+	delim := []byte("\r\n\r\n")
+	idx := bytes.Index(req, delim)
+	if idx >= 0 {
+		body := req[idx+len(delim):]
+		if len(body) > 0 && bytes.HasSuffix(body, []byte("\r\n")) {
+			req = req[:len(req)-2]
+		}
+	}
+
 	return req
 }
 
