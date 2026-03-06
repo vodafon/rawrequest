@@ -50,7 +50,8 @@ func main() {
 	client := rawhttp.NewDefaultClient()
 	defer client.Close()
 	client.Timeout = 30 * time.Second
-	client.QuietTimeout = 300 * time.Millisecond
+	client.ReadFull = true
+	client.QuietTimeout = 500 * time.Millisecond
 
 	if *flagProxy != "" {
 		u, err := url.Parse(*flagProxy)

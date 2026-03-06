@@ -2,7 +2,7 @@ module github.com/vodafon/rawrequest
 
 go 1.25.5
 
-require github.com/vodafon/rawhttp v0.2.6
+require github.com/vodafon/rawhttp v0.3.0
 
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect

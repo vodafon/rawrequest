@@ -8,6 +8,10 @@ github.com/vodafon/rawhttp v0.2.3 h1:YkgmMVCg12J+AbVGH9pHdMgPqQfB+DnMKnNA7o2WfvQ
 github.com/vodafon/rawhttp v0.2.3/go.mod h1:ltnYQWjc+5onlctvCvtEkW9HH5aVFh2TMacvUEgmsgA=
 github.com/vodafon/rawhttp v0.2.6 h1:HosgUId9oYaZ1GrAbKWpW/N//LyeaUfjwkkATVe7eks=
 github.com/vodafon/rawhttp v0.2.6/go.mod h1:ltnYQWjc+5onlctvCvtEkW9HH5aVFh2TMacvUEgmsgA=
+github.com/vodafon/rawhttp v0.2.7 h1:KNuCpD28NjIf7uhZupVW7RfhgxGV8M2LdK6E+6y3wPg=
+github.com/vodafon/rawhttp v0.2.7/go.mod h1:ltnYQWjc+5onlctvCvtEkW9HH5aVFh2TMacvUEgmsgA=
+github.com/vodafon/rawhttp v0.3.0 h1:JHrSqIRfNzeRBrVmLtkSJWbt1SWJfHgKG3SW70As2c4=
+github.com/vodafon/rawhttp v0.3.0/go.mod h1:ltnYQWjc+5onlctvCvtEkW9HH5aVFh2TMacvUEgmsgA=
 github.com/vodafon/vgutils v0.0.0-20201031081340-1b6be1866ddb h1:Bi9wfeOHdYk3Q3lmv6r+FApEc7pHPMHzdVtohXpiIlQ=
 github.com/vodafon/vgutils v0.0.0-20201031081340-1b6be1866ddb/go.mod h1:/VaYBpWj/PQPuCF87gWFPKX2729n+x85NYrtuZSwY3g=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
