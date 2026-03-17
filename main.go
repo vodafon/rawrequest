@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vodafon/rawhttp"
+	"github.com/vodafon/rawhttp2"
 )
 
 var (
@@ -37,6 +38,11 @@ func main() {
 	if *flagDebug {
 		fmt.Printf("flags: flagProxy(%q), flagChangeCL(%t), flagDebug(%t)\n", *flagProxy, *flagChangeCL, *flagDebug)
 		fmt.Printf("Data: %q\n", data)
+	}
+
+	if isH2Msg(data) {
+		doH2Request(data)
+		return
 	}
 
 	input, err := ParseData(data)
@@ -192,4 +198,79 @@ func getHostRegex(rawReq []byte) string {
 	}
 
 	return ""
+}
+
+func isH2Msg(data []byte) bool {
+	s := string(data)
+	if strings.HasPrefix(s, rawhttp2.H2MsgMagic) {
+		return true
+	}
+	if strings.HasPrefix(s, "#") {
+		idx := strings.Index(s, "\n")
+		if idx >= 0 && strings.HasPrefix(strings.TrimSpace(s[idx+1:]), rawhttp2.H2MsgMagic) {
+			return true
+		}
+	}
+	return false
+}
+
+func doH2Request(data []byte) {
+	s := string(data)
+
+	target := ""
+	h2data := data
+
+	if strings.HasPrefix(s, "#") && !strings.HasPrefix(s, rawhttp2.H2MsgMagic) {
+		idx := strings.Index(s, "\n")
+		if idx >= 0 {
+			target = strings.TrimSpace(s[1:idx])
+			h2data = []byte(s[idx+1:])
+		}
+	}
+
+	msg, err := rawhttp2.ParseH2Msg(h2data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "h2msg parse error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if target == "" {
+		for _, h := range msg.Headers {
+			switch string(h.NameDecoded) {
+			case ":authority":
+				target = "https://" + string(h.ValueDecoded)
+			case ":scheme":
+				if target == "" {
+					target = string(h.ValueDecoded) + "://"
+				}
+			}
+		}
+	}
+
+	if target == "" {
+		fmt.Fprintf(os.Stderr, "h2 target not found: provide #URL line or :authority pseudoheader\n")
+		os.Exit(1)
+	}
+
+	if !strings.HasPrefix(target, "https://") && !strings.HasPrefix(target, "http://") {
+		target = "https://" + target
+	}
+
+	client := rawhttp2.NewDefaultClient()
+	client.Timeout = 30 * time.Second
+
+	respMsg, h2err, err := client.Do(target, msg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "h2 request error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if h2err != nil {
+		fmt.Fprintf(os.Stderr, "h2 protocol error: %s (code=%d, scope=%s)\n", h2err.Message, h2err.Code, h2err.Scope)
+		if respMsg == nil {
+			os.Exit(1)
+		}
+	}
+
+	fmt.Printf("%s", rawhttp2.SerializeH2Msg(respMsg))
 }
