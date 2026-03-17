@@ -486,3 +486,37 @@ func TestDataNormalization_TrailingNewlineStrippedFromBody(t *testing.T) {
 		})
 	}
 }
+
+func TestIsH2Msg_Direct(t *testing.T) {
+	input := []byte("#!prook-h2 v1\n\n@request\nstream_id: auto\n@end\n\n@headers\n:method: GET\n:path: /\n@end\n")
+	if !isH2Msg(input) {
+		t.Error("expected isH2Msg=true for direct h2msg")
+	}
+}
+
+func TestIsH2Msg_WithTargetLine(t *testing.T) {
+	input := []byte("#https://example.com\n#!prook-h2 v1\n\n@request\nstream_id: auto\n@end\n\n@headers\n:method: GET\n:path: /\n@end\n")
+	if !isH2Msg(input) {
+		t.Error("expected isH2Msg=true for h2msg with target line")
+	}
+}
+
+func TestIsH2Msg_HTTP1(t *testing.T) {
+	input := []byte("#https://example.com\nGET / HTTP/1.1\nHost: example.com\n\n")
+	if isH2Msg(input) {
+		t.Error("expected isH2Msg=false for HTTP/1.1 request")
+	}
+}
+
+func TestIsH2Msg_Empty(t *testing.T) {
+	if isH2Msg([]byte{}) {
+		t.Error("expected isH2Msg=false for empty input")
+	}
+}
+
+func TestIsH2Msg_NoPrefix(t *testing.T) {
+	input := []byte("GET / HTTP/1.1\nHost: example.com\n\n")
+	if isH2Msg(input) {
+		t.Error("expected isH2Msg=false for plain HTTP request")
+	}
+}
