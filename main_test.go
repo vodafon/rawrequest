@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/vodafon/rawhttp2"
 )
 
 // --- replaceLastCR ---
@@ -262,6 +265,54 @@ func TestReplaceContentLength(t *testing.T) {
 				t.Errorf("replaceContentLength(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsH2Msg(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []byte
+		want bool
+	}{
+		{name: "native h2msg", in: []byte("#!prook-h2 v1\n@request\n@end\n"), want: true},
+		{name: "burp-like request", in: []byte("GET / HTTP/2\nHost: a\n\n"), want: true},
+		{name: "burp-like response", in: []byte("HTTP/2 200\ncontent-type: text/plain\n\nOK"), want: true},
+		{name: "with target line and h2", in: []byte("#https://example.com\nGET / HTTP/2\nHost: a\n\n"), want: true},
+		{name: "http1", in: []byte("GET / HTTP/1.1\nHost: a\n\n"), want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isH2Msg(tt.in)
+			if got != tt.want {
+				t.Fatalf("isH2Msg()=%v want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBurpLikeSerializeResponse(t *testing.T) {
+	msg := &rawhttp2.H2Message{
+		Kind:     "response",
+		StreamID: "7",
+		Headers: []rawhttp2.HeaderLine{
+			{NameDecoded: []byte(":status"), ValueDecoded: []byte("200"), IsPseudo: true},
+			{NameDecoded: []byte("content-type"), ValueDecoded: []byte("text/plain")},
+		},
+		Body: []byte("OK"),
+	}
+
+	out := string(rawhttp2.SerializeBurpLikeH2Msg(msg))
+	if !strings.HasPrefix(out, "HTTP/2 200 OK\n") {
+		t.Fatalf("expected HTTP/2 status line, got: %q", out)
+	}
+	if !strings.Contains(out, "content-type: text/plain") {
+		t.Fatalf("missing content-type header: %q", out)
+	}
+	if !strings.Contains(out, "\n\nOK") {
+		t.Fatalf("missing body in burplike output: %q", out)
+	}
+	if !strings.Contains(out, "#!prook-h2-overrides\n@request\nstream_id: 7\n@end\n") {
+		t.Fatalf("missing stream_id override block: %q", out)
 	}
 }
 

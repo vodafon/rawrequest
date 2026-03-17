@@ -202,16 +202,13 @@ func getHostRegex(rawReq []byte) string {
 
 func isH2Msg(data []byte) bool {
 	s := string(data)
-	if strings.HasPrefix(s, rawhttp2.H2MsgMagic) {
-		return true
-	}
-	if strings.HasPrefix(s, "#") {
+	if strings.HasPrefix(s, "#") && !strings.HasPrefix(strings.TrimSpace(s), rawhttp2.H2MsgMagic) {
 		idx := strings.Index(s, "\n")
-		if idx >= 0 && strings.HasPrefix(strings.TrimSpace(s[idx+1:]), rawhttp2.H2MsgMagic) {
-			return true
+		if idx >= 0 {
+			return rawhttp2.IsH2Input([]byte(strings.TrimSpace(s[idx+1:])))
 		}
 	}
-	return false
+	return rawhttp2.IsH2Input(data)
 }
 
 func doH2Request(data []byte) {
@@ -228,7 +225,7 @@ func doH2Request(data []byte) {
 		}
 	}
 
-	msg, err := rawhttp2.ParseH2Msg(h2data)
+	msg, err := rawhttp2.ParseAnyH2Msg(h2data)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "h2msg parse error: %v\n", err)
 		os.Exit(1)
@@ -272,5 +269,5 @@ func doH2Request(data []byte) {
 		}
 	}
 
-	fmt.Printf("%s", rawhttp2.SerializeH2Msg(respMsg))
+	fmt.Printf("%s", rawhttp2.SerializeBurpLikeH2Msg(respMsg))
 }
