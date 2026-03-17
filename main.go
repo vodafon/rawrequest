@@ -16,7 +16,7 @@ import (
 
 var (
 	flagProxy    = flag.String("x", "", "proxy")
-	flagChangeCL = flag.Bool("cl", true, "recalculate content length")
+	flagChangeCL = flag.Bool("cl", false, "recalculate content length")
 	flagDebug    = flag.Bool("debug", false, "debug mode")
 )
 
@@ -35,6 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 	if *flagDebug {
+		fmt.Printf("flags: flagProxy(%q), flagChangeCL(%t), flagDebug(%t)\n", *flagProxy, *flagChangeCL, *flagDebug)
 		fmt.Printf("Data: %q\n", data)
 	}
 
