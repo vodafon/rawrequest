@@ -6,7 +6,7 @@ require github.com/vodafon/rawhttp v0.3.1
 
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
-	github.com/vodafon/rawhttp2 v0.0.0
+	github.com/vodafon/rawhttp2 v0.0.0-00010101000000-000000000000
 	golang.org/x/net v0.52.0 // indirect
 )
 
